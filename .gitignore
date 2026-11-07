@@ -1,0 +1,59 @@
+# ─── 环境变量 / 敏感配置 ───
+.env
+*.env.local
+docker.env
+
+# ─── IDE / 编辑器 ───
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# ─── OS ───
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# ─── Java / Maven ───
+backend/target/
+backend/*.jar
+backend/*.war
+backend/logs/
+*.log
+
+# ─── Node / 前端 ───
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ─── Python / RAG ───
+rag-project/__pycache__/
+rag-project/**/__pycache__/
+rag-project/*.pyc
+rag-project/.streamlit/
+rag-project/chat_history.db
+
+# ─── 工作目录 / 临时文件 ───
+.claude/
+.workbuddy/
+*.tmp
+
+# ─── Word 文档（不提交到 Git） ───
+*.doc
+*.docx
+docx/
+
+# ─── 数据备份 / 压缩包 ───
+*.rar
+*.tar.gz
+minio-book-data.*
+
+# ─── API 测试工具 ───
+backend/book-mgr-api-test.json
+frontend/src/mock/
+
+# ─── 报告生成脚本 ───
+update_tables.py
+update_test_section.py

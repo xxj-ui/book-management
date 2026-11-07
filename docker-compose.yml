@@ -1,0 +1,179 @@
+version: "3.8"
+
+# ─── 全局网络 ───
+networks:
+  book-network:
+    driver: bridge
+
+# ─── 数据卷 ───
+volumes:
+  mysql-data:
+  redis-data:
+  minio-data:
+
+# ─── 服务定义 ───
+services:
+  # ============================================
+  # 1. MySQL 数据库
+  # ============================================
+  mysql:
+    image: mysql:8.0
+    container_name: book-mysql
+    restart: unless-stopped
+    networks:
+      - book-network
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database/data.sql:/docker-entrypoint-initdb.d/02-data.sql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: book_management
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+8:00
+      - --max_allowed_packet=64M
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ============================================
+  # 2. Redis 缓存
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: book-redis
+    restart: unless-stopped
+    networks:
+      - book-network
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ============================================
+  # 3. MinIO 对象存储（图书封面）
+  # ============================================
+  minio:
+    image: minio/minio:latest
+    container_name: book-minio
+    restart: unless-stopped
+    networks:
+      - book-network
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Console
+    volumes:
+      - minio-data:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      TZ: Asia/Shanghai
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: [ "CMD", "mc", "ready", "local" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ============================================
+  # 4. 后端服务（Spring Boot）
+  # ============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: book-backend
+    restart: unless-stopped
+    networks:
+      - book-network
+    ports:
+      - "8080:8080"
+    environment:
+      # 激活 docker 环境配置
+      SPRING_PROFILES_ACTIVE: docker
+      # 数据库连接（指向 docker-compose 中的 mysql 服务名）
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/book_management?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # Redis 连接
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_DATABASE: 1
+      # MinIO 连接
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET_NAME: book-covers
+      TZ: Asia/Shanghai
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  # ============================================
+  # 5. 前端服务（Nginx + Vue 构建产物）
+  # ============================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    container_name: book-frontend
+    restart: unless-stopped
+    networks:
+      - book-network
+    ports:
+      - "80:80"
+    environment:
+      TZ: Asia/Shanghai
+    depends_on:
+      - backend
+
+  # ============================================
+  # 6. AI 智能助手（可选）
+  # ============================================
+  rag:
+    build:
+      context: ./rag-project
+      dockerfile: Dockerfile
+    container_name: book-rag
+    restart: unless-stopped
+    networks:
+      - book-network
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./rag-project/chat_history.db:/app/chat_history.db
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      DB_NAME: book_management
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      TZ: Asia/Shanghai
+    depends_on:
+      mysql:
+        condition: service_healthy
+    profiles:
+      - rag          # 默认不启动，通过 `docker compose --profile rag up` 启动

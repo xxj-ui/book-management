@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>图书管理系统 E-R 图</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  body { background: #f5f5f5; font-family: "Microsoft YaHei", sans-serif; display: flex; justify-content: center; padding: 30px; }
+  .container { background: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 1100px; width: 100%; }
+  h1 { text-align: center; color: #12203E; margin-bottom: 10px; font-size: 22px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📊 图书管理系统 实体关系（E-R）图</h1>
+  <pre class="mermaid" style="text-align:center;">
+    erDiagram
+      t_department ||--o{ t_major : "包含"
+      t_major ||--o{ t_class : "包含"
+      t_class ||--o{ t_student : "属于"
+      t_major ||--o{ t_teacher : "任职"
+
+      t_category ||--o{ t_book : "分类"
+      t_book ||--o{ t_book_copy : "拥有副本"
+      t_book_copy ||--o{ t_borrow_record : "被借阅"
+      t_book ||--o{ t_comment : "有评论"
+      t_book ||--o{ t_recommend : "被推荐"
+
+      t_borrow_record ||--o{ t_fine : "产生滞纳金"
+
+      t_student ||--o{ t_borrow_record : "借阅(逻辑关联)"
+      t_teacher ||--o{ t_borrow_record : "借阅(逻辑关联)"
+      t_student ||--o{ t_notification : "接收通知"
+      t_teacher ||--o{ t_notification : "接收通知"
+  </pre>
+  <div style="margin-top:16px;padding:12px 20px;background:#F8F6F2;border-radius:8px;font-size:13px;color:#666;">
+    <strong style="color:#12203E;">独立实体（无外键关联）：</strong>
+    t_admin（管理员）、t_banner（轮播图）、t_holiday_config（假期设置）、t_borrow_config（借阅规则）
+  </div>
+  <p style="text-align:center;color:#999;font-size:13px;margin-top:10px;">
+    │ 表示 1（一） · ╪ 表示 *（多） · 独立模块未在图中展开
+  </p>
+</div>
+</body>
+</html>
